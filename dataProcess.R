@@ -88,7 +88,7 @@ charTable = chars %>% map(function(x){
 			   alignment = x$Alignment,
 			   skills = x$skillProf %>% which %>% names %>% paste(collapse = '|'),
 			   weapons = x$weapons %>% map_chr('name') %>% gsub("\\|","",.)  %>% paste(collapse = '|'),
-			   spells = glue('{x$spells$name %>% gsub("\\\\*|\\\\|","",.)}*{x$spells$level}') %>% glue::collapse('|') %>% {if(length(.)!=1){return('')}else{return(.)}},
+			   spells = glue('{x$spells$name %>% gsub("\\\\*|\\\\|","",.)}*{x$spells$level}') %>% glue_collapse('|') %>% {if(length(.)!=1){return('')}else{return(.)}},
 			   day = x$date %>%  format('%m %d %y'),
 			   stringsAsFactors = FALSE)
 }) %>% do.call(rbind,.)
