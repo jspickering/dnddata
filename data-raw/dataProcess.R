@@ -13,6 +13,8 @@ library(rgeolocate) # in case I deal with geo placement. not used now
 library(here)
 library(randomNames) # add friendlier names
 
+usethis::use_data_raw()
+
 # memoisation for quick access
 if(file.exists('memoImportChar.rds')){
 	memoImportChar = readRDS(here('memoImportChar.rds'))
@@ -442,12 +444,14 @@ charTable$processedWeapons = processedWeapons
 # }
 #
 # charTable$userIDNoIP = userID
-#
+
+# group levels at common feat acquisition points. sorry fighters and rogues
+
 charTable %<>% mutate(levelGroup = cut(level,
 									   breaks = c(0,3,7,11,15,18,20),
 									   labels  = c('1-3','4-7','8-11','12-15','16-18','19-20')))
 
-write_tsv(charTable,path = here('docs/charTable.tsv'))
+write_tsv(charTable,path = here('data-raw/charTable.tsv'))
 
 # get unique table ----------------
 getUniqueTable = function(charTable){
@@ -485,10 +489,15 @@ getUniqueTable = function(charTable){
 }
 
 
-charTable = read_tsv(here("docs/charTable.tsv"),na = 'NA') # redundant
+charTable = read_tsv(here("data-raw/charTable.tsv"),na = 'NA') # redundant
+
+usethis::use_data(charTable)
 
 list[uniqueTable,singleClassed,multiClassed] = getUniqueTable(charTable)
 
-write_tsv(uniqueTable,path = here('docs/uniqueTable.tsv'))
+write_tsv(uniqueTable,path = here('data-raw/uniqueTable.tsv'))
 
-# group levels at common feat acquisition points. sorry fighters and rogues
+usethis::use_data(uniqueTable)
+usethis::use_data(singleClassed)
+usethis::use_data(multiClassed)
+
