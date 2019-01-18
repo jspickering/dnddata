@@ -118,12 +118,12 @@ races = c(Aarakocra = 'Aarakocra',
 		  Genasi= 'Genasi',
 		  Gith = 'Geth',
 		  Gnome = 'Gnome',
-		  Goblin='Goblin',
+		  Goblin='^Goblin$',
 		  Goliath = 'Goliath',
 		  'Half-Elf' = '(Half-Elf)|(^Variant)',
 		  'Half-Orc' = 'Half-Orc',
 		  Halfling = 'Halfling',
-		  Hobgoblin = 'Hobgoblin',
+		  Hobgoblin = 'Hobgoblin$',
 		  Human = 'Human',
 		  Kenku = 'Kenku',
 		  Kobold = 'Kobold',
@@ -133,7 +133,12 @@ races = c(Aarakocra = 'Aarakocra',
 		  Tabaxi = 'Tabaxi',
 		  Tiefling ='Tiefling|Lineage',
 		  Triton = 'Triton',
-		  Turtle = 'Turtle|Tortle')
+		  Turtle = 'Turtle|Tortle',
+		  Vedalken = 'Violetken',
+		  Minotaur = 'Minotaur',
+		  Centaur = 'Centaur',
+		  Loxodon = 'Elephantine',
+		  `Simic hybrid` = 'Animal Hybrid')
 
 align = list(NG = c('NG',
 					'"Good"',
@@ -243,6 +248,9 @@ charTable %<>% mutate(processedRace = race %>% sapply(function(x){
 	
 	return(out)
 }))
+
+#  lists any race text I'm not processing
+charTable$processedRace[charTable$processedRace == ""] %>% names %>% table %>% sort
 
 # remove personal info -----------
 
