@@ -11,6 +11,7 @@ library(stringr)
 library(memoise)
 library(rgeolocate) # in case I deal with geo placement. not used now
 library(here)
+library(randomNames) # add friendlier names
 
 # memoisation for quick access
 if(file.exists('memoImportChar.rds')){
@@ -257,11 +258,9 @@ charTable$processedRace[charTable$processedRace == ""] %>% names %>% table %>% s
 shortestDigest = function(vector){
 	digested  = vector %>% map_chr(digest,'sha1')
 	uniqueDigested =  digested %>% unique
-	
 	collusionLimit = 1:40 %>% sapply(function(i){
 		substr(uniqueDigested,40-i,40)%>% unique %>% length
 	}) %>% which.max %>% {.+1}
-	
 	digested %<>%  substr(40-collusionLimit,40)
 }
 
@@ -271,8 +270,16 @@ charTable$ip %<>% shortestDigest
 charTable$finger %<>% shortestDigest
 charTable$hash %<>% shortestDigest
 unsecureFields = c('ip','finger','hash')
-
 charTable = charTable[!names(charTable) %in% unsecureFields]
+
+
+# add friendly names ensure old names remain the same
+# the hashes will actually change but their order of introduction shouldn't
+set.seed(1)
+uniqueNames = charTable$name %>% unique
+randomAlias = random_names(length(uniqueNames))
+names(randomAlias) = uniqueNames
+charTable %<>% mutate(alias = randomAlias[name])
 
 spells = wizaRd::spells
 
