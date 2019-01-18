@@ -96,6 +96,9 @@ charTable = chars %>% map(function(x){
 			   stringsAsFactors = FALSE)
 }) %>% do.call(rbind,.)
 
+# remove multiple occurances of the same file
+charTable %<>% filter(!duplicated(hash))
+
 # some experimentation with user location.
 # file <- system.file("extdata","GeoLite2-Country.mmdb", package = "rgeolocate")
 # results <- maxmind(charTable$ip, file, c("continent_name", "country_code", "country_name"))
@@ -255,34 +258,7 @@ charTable %<>% mutate(processedRace = race %>% sapply(function(x){
 #  lists any race text I'm not processing
 charTable$processedRace[charTable$processedRace == ""] %>% names %>% table %>% sort
 
-# remove personal info -----------
-
-shortestDigest = function(vector){
-	digested  = vector %>% map_chr(digest,'sha1')
-	uniqueDigested =  digested %>% unique
-	collusionLimit = 1:40 %>% sapply(function(i){
-		substr(uniqueDigested,40-i,40)%>% unique %>% length
-	}) %>% which.max %>% {.+1}
-	digested %<>%  substr(40-collusionLimit,40)
-}
-
-
-charTable$name %<>% shortestDigest
-charTable$ip %<>% shortestDigest
-charTable$finger %<>% shortestDigest
-charTable$hash %<>% shortestDigest
-unsecureFields = c('ip','finger','hash')
-charTable = charTable[!names(charTable) %in% unsecureFields]
-
-
-# add friendly names ensure old names remain the same
-# the hashes will actually change but their order of introduction shouldn't
-set.seed(1)
-uniqueNames = charTable$name %>% unique
-randomAlias = random_names(length(uniqueNames))
-names(randomAlias) = uniqueNames
-charTable %<>% mutate(alias = randomAlias[name])
-
+# process spells -----
 spells = wizaRd::spells
 
 spells = c(spells, list('.' = list(level = as.integer(99))))
@@ -451,35 +427,97 @@ charTable %<>% mutate(levelGroup = cut(level,
 									   breaks = c(0,3,7,11,15,18,20),
 									   labels  = c('1-3','4-7','8-11','12-15','16-18','19-20')))
 
+
+# remove personal info -----------
+
+shortestDigest = function(vector){
+	digested  = vector %>% map_chr(digest,'sha1')
+	uniqueDigested =  digested %>% unique
+	collusionLimit = 1:40 %>% sapply(function(i){
+		substr(uniqueDigested,40-i,40)%>% unique %>% length
+	}) %>% which.max %>% {.+1}
+	digested %<>%  substr(40-collusionLimit,40)
+}
+
+
+charTable$name %<>% shortestDigest
+charTable$ip %<>% shortestDigest
+charTable$finger %<>% shortestDigest
+charTable$hash %<>% shortestDigest
+unsecureFields = c('ip','finger','hash')
+charTable = charTable[!names(charTable) %in% unsecureFields]
+
+# add friendly names ensure old names remain the same
+# the hashes will actually change but their order of introduction shouldn't
+set.seed(1)
+uniqueNames = charTable$name %>% unique
+randomAlias = random_names(length(uniqueNames))
+names(randomAlias) = uniqueNames
+charTable %<>% mutate(alias = randomAlias[name])
+
 write_tsv(charTable,path = here('data-raw/charTable.tsv'))
+
 
 # get unique table ----------------
 getUniqueTable = function(charTable){
-	uniqueTable = charTable %>% arrange(desc(level)) %>% filter(!duplicated(paste(name,justClass))) %>%
+	# remove obvious duplicates. same name and class assumed to be dups
+	# race is not considered in case same person is experimenting with different
+	# races
+	uniqueTable = charTable %>% arrange(desc(level)) %>%
+		filter(!duplicated(paste(name,justClass))) %>%
 		filter(!level > 20)
 
 	# detect non unique characters that multiclassed
 	multiClassed = uniqueTable %>% filter(grepl('\\|',justClass))
 	singleClassed = uniqueTable %>% filter(!grepl('\\|',justClass))
 
+	multiClassDuplicates = multiClassed$name %>% duplicated %>% which
 
-	matchingNames = multiClassed$name[multiClassed$name %in% singleClassed$name]%>% na.omit
+	# this is somewhat of a heuristic since it only looks at total level and classes chosen
+	# but as both name and class combination is the same its probably some guy experimenting
+	# with different character ideas.
+	multiClassDuplicates %>% sapply(function(x){
+		thedup = multiClassed[x,]
+		matches = multiClassed[-x,] %>% filter(name == thedup$name)
 
-	isDuplicate = matchingNames %>% sapply(function(nm){
-		multiChar = multiClassed %>% filter(name == nm)
-		singleChar = singleClassed %>% filter(name == nm)
+		higherLevel = thedup$level < matches$level
+		dupClass = strsplit(thedup$justClass,'\\|')[[1]]
+		matchClass = strsplit(matches$justClass,'\\|')
 
-		if(nrow(multiChar) != 1 | nrow(singleChar) != 1){
-			warning('Not 1-1 match. Skipping')
-			return(FALSE)
-		} else{
-			isSubset = str_split(multiChar$justClass,pattern = '\\|') %>% {.[[1]]} %>% {singleChar$justClass %in% .}
-			isHigherLevel = multiChar$level > singleChar$level
-			return(isSubset & isHigherLevel)
-		}
-	})
+		matchClass %>% sapply(function(y){
+			all(dupClass %in% y)
+		}) -> classMatches
 
-	singleClassed %<>% filter(!name %in% matchingNames[isDuplicate])
+		any(classMatches & higherLevel)
+
+	}) -> isMultiClassDuplicate
+	if(length(multiClassDuplicates[isMultiClassDuplicate])>0){
+		multiClassed = multiClassed[-multiClassDuplicates[isMultiClassDuplicate],]
+	}
+
+	matchingNames = multiClassed$name[multiClassed$name %in% singleClassed$name] %>%
+		unique
+
+	singleCharDuplicates = which(singleClassed$name %in% matchingNames)
+
+	singleCharDuplicates %>% sapply(function(x){
+		char = singleClassed[x,]
+		print(char[['name']])
+        multiChar = multiClassed %>%
+        	filter(name %in% char[['name']] & grepl(char[['justClass']],justClass))
+        if(nrow(multiChar) == 0){
+        	return (FALSE)
+        }
+
+        isHigher = any(multiChar$level > char[['level']])
+        if (nrow(multiChar)>1){
+        	warning("multiple matches")
+        }
+        return(isHigher)
+	}) -> isDuplicate
+	if(length(singleCharDuplicates[isDuplicate])>0){
+		singleClassed = singleClassed[-singleCharDuplicates[isDuplicate],]
+	}
 
 	uniqueTable = rbind(singleClassed,multiClassed)
 
@@ -497,7 +535,7 @@ list[uniqueTable,singleClassed,multiClassed] = getUniqueTable(charTable)
 
 write_tsv(uniqueTable,path = here('data-raw/uniqueTable.tsv'))
 
-usethis::use_data(uniqueTable,overwrite = TRUE))
-usethis::use_data(singleClassed,overwrite = TRUE))
-usethis::use_data(multiClassed,overwrite = TRUE))
+usethis::use_data(uniqueTable,overwrite = TRUE)
+usethis::use_data(singleClassed,overwrite = TRUE)
+usethis::use_data(multiClassed,overwrite = TRUE)
 
