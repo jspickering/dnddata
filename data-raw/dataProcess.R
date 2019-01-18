@@ -491,13 +491,13 @@ getUniqueTable = function(charTable){
 
 charTable = read_tsv(here("data-raw/charTable.tsv"),na = 'NA') # redundant
 
-usethis::use_data(charTable)
+usethis::use_data(charTable,overwrite = TRUE)
 
 list[uniqueTable,singleClassed,multiClassed] = getUniqueTable(charTable)
 
 write_tsv(uniqueTable,path = here('data-raw/uniqueTable.tsv'))
 
-usethis::use_data(uniqueTable)
-usethis::use_data(singleClassed)
-usethis::use_data(multiClassed)
+usethis::use_data(uniqueTable,overwrite = TRUE))
+usethis::use_data(singleClassed,overwrite = TRUE))
+usethis::use_data(multiClassed,overwrite = TRUE))
 
