@@ -37,8 +37,8 @@ chars = charFiles %>% lapply(function(x){
 })
 saveRDS(memoImportChar,here('memoImportChar.rds'))
 
-# get date information. dates before 2018-04-16 are not reliable 
-fileInfo = file.info(charFiles) 
+# get date information. dates before 2018-04-16 are not reliable
+fileInfo = file.info(charFiles)
 # get user fingerprint and IP
 fileData = charFiles %>% basename %>% strsplit('_')
 
@@ -64,7 +64,7 @@ names(chars) = chars %>% map_chr(function(x){
 	paste(x$Name,x$ClassField)
 })
 
-# create the table 
+# create the table
 charTable = chars %>% map(function(x){
 	data.frame(ip = x$ip,
 			   finger = x$finger,
@@ -101,10 +101,10 @@ charTable = chars %>% map(function(x){
 
 
 # post processing -----
-# the way races are encoded in the app is a little silly. sub-races are 
+# the way races are encoded in the app is a little silly. sub-races are
 # not recorded separately. essentially race information is lost other
 # than a text field after it's effects are applied during creation.
-# The text field is also not too consistent. For instance if you are a 
+# The text field is also not too consistent. For instance if you are a
 # variant it'll simply say "Variant" but if you are a variant human
 # it'll only say human
 # here, I define regex that matches races.
@@ -233,20 +233,20 @@ checkAlignment = function(x,legend){
 
 
 charTable %<>% mutate(processedAlignment = alignment %>% purrr::map_chr(checkAlignment,align),
-					  good = processedAlignment %>% purrr::map_chr(checkAlignment,goodEvil) %>% 
+					  good = processedAlignment %>% purrr::map_chr(checkAlignment,goodEvil) %>%
 					  	factor(levels = c('E','N','G')),
-					  lawful = processedAlignment %>% 
-					  	purrr::map_chr(checkAlignment,lawfulChaotic) %>% factor(levels = c('C','N','L'))) 
+					  lawful = processedAlignment %>%
+					  	purrr::map_chr(checkAlignment,lawfulChaotic) %>% factor(levels = c('C','N','L')))
 
 charTable %<>% mutate(processedRace = race %>% sapply(function(x){
 	out = races %>% sapply(function(y){
 		grepl(pattern = y, x,perl = TRUE,ignore.case = TRUE)
 	}) %>% which %>% names
-	
+
 	if(length(out) == 0 | length(out)>1){
 		out = ''
 	}
-	
+
 	return(out)
 }))
 
@@ -295,30 +295,30 @@ processedSpells = charTable$spells %>% sapply(function(x){
 	}
 	spellNames = x %>% str_split('\\|') %>% {.[[1]]} %>% str_split('\\*') %>% map_chr(1)
 	spellLevels =  x %>% str_split('\\|') %>% {.[[1]]} %>% str_split('\\*') %>% map_chr(2)
-	
+
 	distanceMatrix = adist(tolower(spellNames), tolower(legitSpells),costs = list(ins=2, del=2, sub=3), counts = TRUE)
-	
+
 	rownames(distanceMatrix) = spellNames
 	colnames(distanceMatrix) = legitSpells
-	
+
 	predictedSpell = distanceMatrix %>% apply(1,which.min) %>% {legitSpells[.]}
-	distanceScores =  distanceMatrix %>% apply(1,min) 
+	distanceScores =  distanceMatrix %>% apply(1,min)
 	predictedSpellLevel = spells[predictedSpell] %>% purrr::map_int('level')
-	
+
 	ins = attributes(distanceMatrix)$counts[,distanceMatrix %>% apply(1,which.min),'ins'] %>% as.matrix  %>% diag
 	del = attributes(distanceMatrix)$counts[,distanceMatrix %>% apply(1,which.min),'del'] %>% as.matrix %>% diag
 	sub = attributes(distanceMatrix)$counts[,distanceMatrix %>% apply(1,which.min),'sub'] %>% as.matrix %>% diag
 	isItIn = predictedSpell %>% str_split(' |/') %>% map(function(x){
 		x[!x %in% c('and','or','of','to','the')]
-	}) %>% 
+	}) %>%
 	{sapply(1:length(.),function(i){
 		all(sapply(.[[i]],grepl,x =spellNames[i],ignore.case=TRUE))
 	})}
-	
+
 	spellFrame = data.frame(spellNames,predictedSpell,spellLevels,predictedSpellLevel,distanceScores,ins,del,sub,isItIn,stringsAsFactors = FALSE)
-	
+
 	spellFrame %<>% filter(as.integer(spellLevels)==predictedSpellLevel &( isItIn | (sub < 5 & del < 5 & ins < 5)))
-	
+
 	paste0(spellFrame$predictedSpell,'*',spellFrame$predictedSpellLevel,collapse ='|')
 })
 charTable$processedSpells = processedSpells
@@ -334,7 +334,7 @@ charTable$processedSpells = processedSpells
 
 # fightClubItems =  readRDS('fightClubItems.rds')
 # names(fightClubItems) = allRules %>% map('name') %>% as.character
-# 
+#
 # fightClubItems %>% map_chr('type') %>% {. %in% 'M'} %>% {fightClubItems[.]} %>% map_chr('name')
 # fightClubItems %>% map_chr('type') %>% {. %in% 'R'} %>% {fightClubItems[.]} %>% map_chr('name')
 
@@ -349,30 +349,30 @@ processedWeapons = charTable$weapons %>% sapply(function(x){
 	if(x==''){
 		return('')
 	}
-	weaponNames = x %>% str_split('\\|') %>% {.[[1]]} 
-	
+	weaponNames = x %>% str_split('\\|') %>% {.[[1]]}
+
 	distanceMatrix = adist(tolower(weaponNames), tolower(legitWeapons),costs = list(ins=2, del=2, sub=3), counts = TRUE)
-	
+
 	rownames(distanceMatrix) = weaponNames
 	colnames(distanceMatrix) = legitWeapons
-	
+
 	predictedWeapon = distanceMatrix %>% apply(1,which.min) %>% {legitWeapons[.]}
-	distanceScores =  distanceMatrix %>% apply(1,min) 
-	
+	distanceScores =  distanceMatrix %>% apply(1,min)
+
 	ins = attributes(distanceMatrix)$counts[,distanceMatrix %>% apply(1,which.min),'ins'] %>% as.matrix  %>% diag
 	del = attributes(distanceMatrix)$counts[,distanceMatrix %>% apply(1,which.min),'del'] %>% as.matrix %>% diag
 	sub = attributes(distanceMatrix)$counts[,distanceMatrix %>% apply(1,which.min),'sub'] %>% as.matrix %>% diag
 	isItIn = predictedWeapon %>% str_split(' |/') %>% map(function(x){
 		x[!x %in% c('and','or','of','to','the')]
-	}) %>% 
+	}) %>%
 	{sapply(1:length(.),function(i){
 		all(sapply(.[[i]],grepl,x =weaponNames[i],ignore.case=TRUE))
 	})}
-	
+
 	weaponFrame = data.frame(weaponNames,predictedWeapon,distanceScores,ins,del,sub,isItIn,stringsAsFactors = FALSE)
-	
+
 	weaponFrame %<>% filter(isItIn|  (sub < 2 & del < 2 & ins < 2))
-	
+
 	paste0(weaponFrame$predictedWeapon %>% unique,collapse ='|')
 })
 
@@ -385,8 +385,8 @@ charTable$processedWeapons = processedWeapons
 
 # user id ------
 # userID = c()
-# pb = txtProgressBar(min = 0, max = nrow(charTable), initial = 0) 
-# 
+# pb = txtProgressBar(min = 0, max = nrow(charTable), initial = 0)
+#
 # for(i in 1:nrow(charTable)){
 #     setTxtProgressBar(pb,i)
 #     for (id in unique(userID)){
@@ -394,29 +394,29 @@ charTable$processedWeapons = processedWeapons
 #         ip = charTable$ip[i] %>% {if(is.na(.) || . =='NULL' || .==''){return("NANA")}else{.}}
 #         finger = charTable$finger[i] %>% {if(is.na(.) || . =='NULL' ||. == ''){return("NANA")}else{.}}
 #         hash = charTable$hash[i] %>% {if(is.na(.) || . =='NULL' || . == ''){return("NANA")}else{.}}
-#         
+#
 #         ipInUser = ip %in% userChars$ip
 #         fingerInUser = finger %in% userChars$finger
 #         hashInUser = hash %in% userChars$hash
 #         if(ipInUser | fingerInUser | hashInUser){
-#             
+#
 #             userID = c(userID,id)
 #             break
 #         }
-#         
+#
 #     }
-#     
+#
 #     if(length(userID)!=i){
 #         userID = c(userID, max(c(userID,0))+1)
 #     }
 # }
-# 
+#
 # charTable$userID = userID
-# 
-# 
+#
+#
 # userID = c()
-# pb = txtProgressBar(min = 0, max = nrow(charTable), initial = 0) 
-# 
+# pb = txtProgressBar(min = 0, max = nrow(charTable), initial = 0)
+#
 # for(i in 1:nrow(charTable)){
 #     setTxtProgressBar(pb,i)
 #     for (id in unique(userID)){
@@ -424,25 +424,25 @@ charTable$processedWeapons = processedWeapons
 #         ip = charTable$ip[i] %>% {if(is.na(.) || . =='NULL' || .==''){return("NANA")}else{.}}
 #         finger = charTable$finger[i] %>% {if(is.na(.) || . =='NULL' ||. == ''){return("NANA")}else{.}}
 #         hash = charTable$hash[i] %>% {if(is.na(.) || . =='NULL' || . == ''){return("NANA")}else{.}}
-#         
+#
 #         ipInUser = ip %in% userChars$ip
 #         fingerInUser = finger %in% userChars$finger
 #         hashInUser = hash %in% userChars$hash
 #         if(fingerInUser | hashInUser){
-#             
+#
 #             userID = c(userID,id)
 #             break
 #         }
-#         
+#
 #     }
-#     
+#
 #     if(length(userID)!=i){
 #         userID = c(userID, max(c(userID,0))+1)
 #     }
 # }
-# 
+#
 # charTable$userIDNoIP = userID
-# 
+#
 charTable %<>% mutate(levelGroup = cut(level,
 									   breaks = c(0,3,7,11,15,18,20),
 									   labels  = c('1-3','4-7','8-11','12-15','16-18','19-20')))
@@ -451,20 +451,20 @@ write_tsv(charTable,path = here('docs/charTable.tsv'))
 
 # get unique table ----------------
 getUniqueTable = function(charTable){
-	uniqueTable = charTable %>% arrange(desc(level)) %>% filter(!duplicated(paste(name,justClass))) %>% 
+	uniqueTable = charTable %>% arrange(desc(level)) %>% filter(!duplicated(paste(name,justClass))) %>%
 		filter(!level > 20)
-	
+
 	# detect non unique characters that multiclassed
 	multiClassed = uniqueTable %>% filter(grepl('\\|',justClass))
 	singleClassed = uniqueTable %>% filter(!grepl('\\|',justClass))
-	
-	
-	matchingNames = multiClassed$name[multiClassed$name %in% singleClassed$name]%>% na.omit 
-	
+
+
+	matchingNames = multiClassed$name[multiClassed$name %in% singleClassed$name]%>% na.omit
+
 	isDuplicate = matchingNames %>% sapply(function(nm){
 		multiChar = multiClassed %>% filter(name == nm)
 		singleChar = singleClassed %>% filter(name == nm)
-		
+
 		if(nrow(multiChar) != 1 | nrow(singleChar) != 1){
 			warning('Not 1-1 match. Skipping')
 			return(FALSE)
@@ -474,11 +474,11 @@ getUniqueTable = function(charTable){
 			return(isSubset & isHigherLevel)
 		}
 	})
-	
+
 	singleClassed %<>% filter(!name %in% matchingNames[isDuplicate])
-	
+
 	uniqueTable = rbind(singleClassed,multiClassed)
-	
+
 	return(list(uniqueTable = uniqueTable,
 				singleClassed = singleClassed,
 				multiClassed = multiClassed))
