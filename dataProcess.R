@@ -12,8 +12,8 @@ library(memoise)
 library(rgeolocate) # in case I deal with geo placement. not used now
 library(here)
 
-
-if(exists('memoImportChar.rds')){
+# memoisation for quick access
+if(file.exists('memoImportChar.rds')){
 	memoImportChar = readRDS(here('memoImportChar.rds'))
 } else {
 	memoImportChar = memoise(importCharacter)
