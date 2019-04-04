@@ -11,7 +11,8 @@ library(stringr)
 library(memoise)
 library(rgeolocate) # in case I deal with geo placement. not used now
 library(here)
-library(randomNames) # add friendlier names
+library(data.table)
+library(randomNames) # add friendlier names. github.com/oganm/randomNames
 
 usethis::use_data_raw()
 
@@ -32,7 +33,14 @@ charFiles = c(list.files('/srv/shiny-server/printSheetApp/chars/',full.names = T
 			  list.files('/srv/shiny-server/chars4', full.names = TRUE))
 
 
+
+
 print('reading char files')
+
+fileInfo = file.info(charFiles)
+charFiles = charFiles[order(fileInfo$mtime)]
+fileInfo = fileInfo[order(fileInfo$mtime),]
+
 # use import5eChar to read the all of them
 chars = charFiles %>% lapply(function(x){
 	memoImportChar(file = x)
@@ -40,7 +48,6 @@ chars = charFiles %>% lapply(function(x){
 saveRDS(memoImportChar,here('memoImportChar.rds'))
 
 # get date information. dates before 2018-04-16 are not reliable
-fileInfo = file.info(charFiles)
 # get user fingerprint and IP
 fileData = charFiles %>% basename %>% strsplit('_')
 
@@ -92,13 +99,34 @@ charTable = chars %>% map(function(x){
 			   skills = x$skillProf %>% which %>% names %>% paste(collapse = '|'),
 			   weapons = x$weapons %>% map_chr('name') %>% gsub("\\|","",.)  %>% paste(collapse = '|'),
 			   spells = glue('{x$spells$name %>% gsub("\\\\*|\\\\|","",.)}*{x$spells$level}') %>% glue_collapse('|') %>% {if(length(.)!=1){return('')}else{return(.)}},
-			   day = x$date %>%  format('%m %d %y'),
+			   day = x$date %>%  format('%m %d %Y'),
+			   castingStat = names(x$abilityMods[x$castingStatCode+1]),
 			   stringsAsFactors = FALSE)
 }) %>% do.call(rbind,.)
 
 # remove multiple occurances of the same file
-charTable %<>% filter(!duplicated(hash))
+charTable %<>% arrange(desc(date)) %>%  filter(!duplicated(hash))
 
+
+
+if(file.exists('memoIPgeolocate.rds')){
+	memoIPgeolocate = readRDS(here('memoIPgeolocate.rds'))
+} else {
+	memoIPgeolocate = memoise(ipapi::geolocate)
+	saveRDS(memoIPgeolocate,'memoIPgeolocate.rds')
+}
+
+
+
+
+ipLocations = charTable$ip %>%
+	lapply(memoIPgeolocate,.progress = FALSE) %>%
+	rbindlist(fill = TRUE)
+
+saveRDS(memoIPgeolocate,here('memoIPgeolocate.rds'))
+
+charTable$country = ipLocations$country
+charTable$countryCode = ipLocations$countryCode
 # some experimentation with user location.
 # file <- system.file("extdata","GeoLite2-Country.mmdb", package = "rgeolocate")
 # results <- maxmind(charTable$ip, file, c("continent_name", "country_code", "country_name"))
@@ -110,7 +138,7 @@ charTable %<>% filter(!duplicated(hash))
 # not recorded separately. essentially race information is lost other
 # than a text field after it's effects are applied during creation.
 # The text field is also not too consistent. For instance if you are a
-# variant it'll simply say "Variant" but if you are a variant human
+# variant half elf it'll simply say "Variant" but if you are a variant human
 # it'll only say human
 # here, I define regex that matches races.
 # kind of an overkill as only few races actually required special care
@@ -119,102 +147,87 @@ races = c(Aarakocra = 'Aarakocra',
 		  Bugbear= 'Bugbear',
 		  Dragonborn = 'Dragonborn',
 		  Dwarf = 'Dwarf',
-		  Elf = '(?<!Half-)Elf',
+		  Elf = '(?<!Half-)Elf|Drow',
 		  Firbolg = 'Firbolg',
 		  Genasi= 'Genasi',
-		  Gith = 'Geth',
+		  Gith = 'Geth|Githzerai',
 		  Gnome = 'Gnome',
 		  Goblin='^Goblin$',
 		  Goliath = 'Goliath',
-		  'Half-Elf' = '(Half-Elf)|(^Variant)',
+		  'Half-Elf' = '(Half-Elf)|(^Variant$)',
 		  'Half-Orc' = 'Half-Orc',
 		  Halfling = 'Halfling',
 		  Hobgoblin = 'Hobgoblin$',
-		  Human = 'Human',
+		  Human = 'Human|Variant Human',
 		  Kenku = 'Kenku',
 		  Kobold = 'Kobold',
 		  Lizardfolk = 'Lizardfolk',
 		  Orc = '(?<!Half-)Orc',
-		  'Yaun-Ti' = 'Serpentblood',
+		  'Yaun-Ti' = 'Serpentblood|Yuan-Ti',
 		  Tabaxi = 'Tabaxi',
 		  Tiefling ='Tiefling|Lineage',
 		  Triton = 'Triton',
 		  Turtle = 'Turtle|Tortle',
-		  Vedalken = 'Violetken',
+		  Vedalken = 'Violetken|Vedalken',
 		  Minotaur = 'Minotaur',
 		  Centaur = 'Centaur',
-		  Loxodon = 'Elephantine',
-		  `Simic hybrid` = 'Animal Hybrid')
+		  Loxodon = 'Elephantine|Luxodon',
+		  `Simic hybrid` = 'Animal Hybrid|Simic Hybrid',
+		  Warforged = 'Warforged|Envoy|Juggernaut|Juggeenaut',
+		  Changeling = 'Changeling',
+		  Eladrin = 'Eladrin')
 
-align = list(NG = c('NG',
-					'"Good"',
-					'Ng',
-					"Neuteral Good",
-					'Neitral Good',
-					"Neutral Good",
-					"Nuetral Goodt",
-					"Neutral/Good",
-					"Neutral good",
+align = list(NG = c('ng',
+					'"good"',
+					'good',
+					'neuteral good',
+					'neitral good',
 					'neutral good',
+					'nuetral goodt',
+					'neutral/good',
 					'neutral-good',
-					'Neutral Good ',
-					'Nuetral Good',
-					'Nutral Good',
-					'Neutral Good\n',
-					'N Good',
-					'N/G'),
-			 CG = c('Chaotic Good',
-			 	   'CG',
-			 	   'Chacotic Good',
-			 	   'Chaotic good',
-			 	   'Good Chaotic',
-			 	   'chaotic good',
-			 	   'Chaotic Good '),
-			 LG = c('Lawful Good',
-			 	   'L/G',
-			 	   'Lawful Good ',
-			 	   'L-G',
-			 	   'LG',
-			 	   'lawful good',
-			 	   'Lawful good',
-			 	   'Lawfull Good'),
-			 NN = c('Neutral',
+					'nuetral good',
+					'nutral good',
+					'n good',
+					'\U0001f937 neutral good',
+					'neutral goodsskkd',
+					'n/g'),
+			 CG = c('chaotic good',
+			 	   'caótico neutro',
+			 	   'cg',
+			 	   'chacotic good',
+			 	   'good chaotic'),
+			 LG = c('lawful good',
+			 	   'l/g',
+			 	   'l-g',
+			 	   'lg',
+			 	   'lawfull good',
+			 	   'lawful goodness',
+			 	   'lawfully good'),
+			 NN = c('neutral',
 			 	   'neutral neutral',
-			 	   'Netral',
-			 	   'neutral ',
-			 	   'Neutral ',
+			 	   'netral',
 			 	   'n',
-			 	   'N',
-			 	   'True Neutral',
-			 	   'True Neutral ',
-			 	   'neutral',
-			 	   'TN',
-			 	   'Neutral Neutral',
 			 	   'true neutral',
-			 	   'Neutral neutral'),
-			 CN = c('Chaotic Neutral',
-			 	   'CN',
-			 	   'chaotic neutral',
-			 	   'Chaotic neutral',
-			 	   'chaotic nuetral',
-			 	   'Chaotic Nuetral',
+			 	   'tn'),
+			 CN = c('chaotic neutral',
+			 	   'chaotic',
 			 	   'cn',
-			 	   'Chaotic Neutral ',
-			 	   'neutral chaotic ',
-			 	   'neutral chaotic',
-			 	   'chaotic neutral '),
-			 LN = c('Lawful Neutral',
-			 	   'Lawful neutral',
-			 	   'lawful neutral ',
-			 	   'Leal e Neutro',
+			 	   'chaotic nuetral',
+			 	   'neutral chaotic'),
+			 LN = c('lawful neutral',
+			 	   'lawful',
+			 	   'lawful/neutral',
+			 	   'leal e neutro',
 			 	   'lawful - neutral',
-			 	   'LN',
-			 	   'Lawful Neutral (good-ish)',
-			 	   'lawful neutral',
-			 	   'lawful neutral'),
-			 NE = c('Neutral Evil'),
-			 LE = c('Lawful Evil','LE'),
-			 CE = c('CE','Chaotic Evil'))
+			 	   'ln',
+			 	   'lawful neutral (good-ish)',
+			 	   'legal good'),
+			 NE = c('neutral evil','ne'),
+			 LE = c('lawful evil',
+			 	   'le'),
+			 CE = c('ce',
+			 	   'chaotic evil'))
 
 goodEvil = list(`E` = c('NE','LE','CE'),
 				`N` = c('LN','CN','NN'),
@@ -225,10 +238,10 @@ lawfulChaotic = list(`C` = c('CN','CG','CE'),
 					 `L` = c('LG','LE','LN'))
 
 # lists any alignment text I'm not processing
-charTable$alignment  %>% {.[!. %in% unlist(align)]} %>% table %>% sort %>% names
+charTable$alignment  %>% {.[!tolower(trimws(.)) %in% unlist(align)]} %>% table %>% sort %>% names %>% tolower %>% trimws
 
 checkAlignment = function(x,legend){
-	x = names(legend)[findInList(x,legend)]
+	x = names(legend)[findInList(tolower(trimws(x)),legend)]
 	if(length(x) == 0){
 		return('')
 	} else{
@@ -431,12 +444,14 @@ charTable %<>% mutate(levelGroup = cut(level,
 # remove personal info -----------
 
 shortestDigest = function(vector){
-	digested  = vector %>% map_chr(digest,'sha1')
-	uniqueDigested =  digested %>% unique
+	digested = vector(mode = 'character',length = length(vector))
+	digested[vector!='']  = vector[vector!=''] %>% map_chr(digest,'sha1')
+	uniqueDigested =  digested[digested!=''] %>% unique
 	collusionLimit = 1:40 %>% sapply(function(i){
 		substr(uniqueDigested,40-i,40)%>% unique %>% length
 	}) %>% which.max %>% {.+1}
 	digested %<>%  substr(40-collusionLimit,40)
+	return(digested)
 }
 
 
@@ -444,18 +459,20 @@ charTable$name %<>% shortestDigest
 charTable$ip %<>% shortestDigest
 charTable$finger %<>% shortestDigest
 charTable$hash %<>% shortestDigest
-unsecureFields = c('ip','finger','hash')
-charTable = charTable[!names(charTable) %in% unsecureFields]
+# unsecureFields = c('ip','finger','hash')
+# charTable = charTable[!names(charTable) %in% unsecureFields]
 
 # add friendly names ensure old names remain the same
 # the hashes will actually change but their order of introduction shouldn't
 set.seed(1)
-uniqueNames = charTable$name %>% unique
+uniqueNames = charTable %>% arrange(date) %$% name %>% unique
 randomAlias = random_names(length(uniqueNames))
 names(randomAlias) = uniqueNames
 charTable %<>% mutate(alias = randomAlias[name])
 
-write_tsv(charTable,path = here('data-raw/charTable.tsv'))
+
+dnd_chars_all = charTable
+write_tsv(dnd_chars_all,path = here('data-raw/dnd_chars_all.tsv'))
 
 
 # get unique table ----------------
@@ -463,6 +480,8 @@ getUniqueTable = function(charTable){
 	# remove obvious duplicates. same name and class assumed to be dups
 	# race is not considered in case same person is experimenting with different
 	# races
+	charTable %<>% filter(name !='')
+
 	uniqueTable = charTable %>% arrange(desc(level)) %>%
 		filter(!duplicated(paste(name,justClass))) %>%
 		filter(!level > 20)
@@ -477,6 +496,7 @@ getUniqueTable = function(charTable){
 	# but as both name and class combination is the same its probably some guy experimenting
 	# with different character ideas.
 	multiClassDuplicates %>% sapply(function(x){
+
 		thedup = multiClassed[x,]
 		matches = multiClassed[-x,] %>% filter(name == thedup$name)
 
@@ -527,15 +547,44 @@ getUniqueTable = function(charTable){
 }
 
 
-charTable = read_tsv(here("data-raw/charTable.tsv"),na = 'NA') # redundant
+# dnd_chars_all = read_tsv(here("data-raw/dnd_chars_all.tsv"),na = 'NA') # redundant
 
-usethis::use_data(charTable,overwrite = TRUE)
+usethis::use_data(dnd_chars_all,overwrite = TRUE)
 
-list[uniqueTable,singleClassed,multiClassed] = getUniqueTable(charTable)
+list[dnd_chars_unique,dnd_chars_singleclass,dnd_chars_multiclass] = getUniqueTable(dnd_chars_all)
 
-write_tsv(uniqueTable,path = here('data-raw/uniqueTable.tsv'))
+write_tsv(dnd_chars_unique,path = here('data-raw/dnd_chars_unique.tsv'))
 
-usethis::use_data(uniqueTable,overwrite = TRUE)
-usethis::use_data(singleClassed,overwrite = TRUE)
-usethis::use_data(multiClassed,overwrite = TRUE)
+usethis::use_data(dnd_chars_unique,overwrite = TRUE)
+usethis::use_data(dnd_chars_singleclass,overwrite = TRUE)
+usethis::use_data(dnd_chars_multiclass,overwrite = TRUE)
+
+# format
+
+glue("
+	 #' @format A data frame with 30 variables:
+	 #' \\describe")
+
+# github updates ------
+# library(git2r)
+# repo = repository(here('.'))
+# add(repo, 'data-raw/.')
+# token = readLines('data-raw/auth')
+# Sys.setenv(GITHUB_PAT = token)
+# cred = git2r::cred_token()
+#
+# ogbox::setDate(format(Sys.Date(),'%Y-%m-%d'))
+# version = ogbox::getVersion()
+# version %<>% strsplit('\\.') %>% {.[[1]]}
+#
+# ogbox::setVersion(paste(version[1],version[2],
+# 						format(Sys.Date(),'%y.%m.%d') %>%
+# 							gsub(pattern = '\\.0','.',x=.),sep='.'))
+#
+# add(repo,'DESCRIPTION')
+#
+#
+# git2r::commit(repo,message = paste('Weekly auto update'))
+# git2r::push(repo,credentials = cred)
+
 
