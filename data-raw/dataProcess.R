@@ -126,7 +126,8 @@ charTable = chars %>% map(function(x){
 # get rid of characters who start with the character generator but continue to level up by hand (unpaid users)
 freeTextLevel = charTable$classFreeText %>% str_extract_all('[0-9]+') %>% lapply(as.integer) %>% sapply(sum)
 
-charTable %<>% filter(!(level == 1 & freeTextLevel !=1))
+charTable %<>% filter(!(level == 1 & freeTextLevel !=1)) %>%
+	filter(class!='')
 charTable %<>% select(-classFreeText)
 
 # remove multiple occurances of the same file
@@ -784,10 +785,21 @@ usethis::use_data(dnd_chars_all_list,overwrite = TRUE)
 dnd_chars_unique_list %>% jsonlite::toJSON(pretty = TRUE) %>% writeLines(here('data-raw/dnd_chars_unique.json'))
 dnd_chars_all_list %>% jsonlite::toJSON(pretty = TRUE) %>% writeLines(here('data-raw/dnd_chars_all.json'))
 
+ogbox::purge()
+gc()
+
+rmarkdown::render(input = 'README.Rmd',output_file = 'README.md')
+
+ogbox::purge()
+gc()
+
+
 # github updates ------
 library(git2r)
 repo = repository(here('.'))
 add(repo, 'data-raw/dnd_chars_all.tsv')
+add(repo, 'README.md')
+add(repo, 'README_files/*')
 add(repo, 'data-raw/dnd_chars_unique.tsv')
 add(repo, 'data-raw/dnd_chars_all.json')
 add(repo, 'data-raw/dnd_chars_unique.json')
@@ -800,7 +812,3 @@ token = readLines(here('data-raw/auth'))
 Sys.setenv(GITHUB_PAT = token)
 cred = git2r::cred_token()
 git2r::push(repo,credentials = cred)
-
-
-
-
