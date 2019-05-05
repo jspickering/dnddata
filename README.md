@@ -21,7 +21,7 @@ web applications [printSheetApp](https://oganm.com/shiny/printSheetApp)
 and [interactiveSheet](https://oganm.com/shiny/interactiveSheet). It is
 a superset of the dataset I previously released under
 [oganm/dndstats](https://oganm.github.io/dndstats) with a much larger
-sample (2770 characters) size and more data fields.
+sample (2775 characters) size and more data fields.
 
 Along with a simple table (an R `data.frame` in package), the data is
 also present in json format (an R `list` in package). In the table
@@ -59,7 +59,31 @@ as I did in my [original article](https://oganm.github.io/dndstats/).
 library(purrr)
 library(ggplot2)
 library(magrittr)
+```
+
+    ## 
+    ## Attaching package: 'magrittr'
+
+    ## The following object is masked from 'package:purrr':
+    ## 
+    ##     set_names
+
+``` r
 library(dplyr)
+```
+
+    ## 
+    ## Attaching package: 'dplyr'
+
+    ## The following objects are masked from 'package:stats':
+    ## 
+    ##     filter, lag
+
+    ## The following objects are masked from 'package:base':
+    ## 
+    ##     intersect, setdiff, setequal, union
+
+``` r
 library(reshape2)
 
 # find all available races
@@ -245,6 +269,10 @@ dnd_chars_unique_list %>% purrr::map('choices') %>%
 
   - **alias:** A friendly alias that correspond to each uniqe name
 
+The list version of this dataset contains all of these fields but they
+are organised a little differently, keeping fields like `spells` and
+`processedSpells` together.
+
 ### Caveats
 
 #### Possible Issues with data fields
@@ -252,8 +280,21 @@ dnd_chars_unique_list %>% purrr::map('choices') %>%
 Some data fields are more reliable than others. Below is a summary of
 all potential problems with the data fields
 
+  - **ip and browser fingerprints:** Both IP and browser fingerprints
+    are represented as hashes. I keep them to have an idea of individual
+    users but did not make use of them so far. Note that same IPs can be
+    shared by an entire region in some cases.
+
   - **processedAlignment:** Alignment is a free text field in the app
-    and optional. Many characters do not enter their alignments
+    and optional. Many characters do not enter their alignments. To
+    create the standardized alignment fields, I went through every entry
+    and manually assignment every alternative spelling to the
+    standardized version. These include mispelled entries, abreviations,
+    entries in different languages etc. In cases where I wasn’t able to
+    match (eg. what the hell is “lawful cute”), this field was left
+    blank. Between automatic updates new and exciting ways to describe
+    alignment can come into play. Unless I manually added these new
+    entries, they will also appear blank.
 
   - **processedSpells:** The mobile app allows entering free text into
     the spell fields. Which means I have to deal with people writing
