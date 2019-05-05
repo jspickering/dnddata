@@ -10,7 +10,7 @@ devtools::load_all()
 
 
 
-# dnddata (Work In Progress)
+# dnddata
 
    * [dnddata (Work In Progress)](#dnddata-work-in-progress)
       * [Usage/installation](#usageinstallation)
