@@ -8,7 +8,19 @@ knitr::opts_chunk$set(echo = TRUE)
 devtools::load_all()
 ```
 
+
+
 # dnddata (Work In Progress)
+
+   * [dnddata (Work In Progress)](#dnddata-work-in-progress)
+      * [Usage/installation](#usageinstallation)
+      * [Examples](#examples)
+      * [About the data](#about-the-data)
+         * [Column/element description](#columnelement-description)
+         * [Caveats](#caveats)
+            * [Possible Issues with data fields](#possible-issues-with-data-fields)
+            * [Possible issues with detection of unique characters](#possible-issues-with-detection-of-unique-characters)
+            * [Possible issues with selection bias](#possible-issues-with-selection-bias)
 
 This is a weekly updated dataset of character that are submitted to my web
 applications [printSheetApp](https://oganm.com/shiny/printSheetApp) and
