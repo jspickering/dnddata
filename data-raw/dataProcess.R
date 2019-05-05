@@ -117,7 +117,7 @@ charTable = chars %>% map(function(x){
 			   # day = x$date %>%  format('%m %d %Y'),
 			   castingStat = names(x$abilityMods[x$castingStatCode+1]),
 			   choices = paste(gsub('\\||/|\\*','',names(x$classChoices)),
-			   				sapply(sapply(x$classChoices,gsub,pattern = '\\||/|\\*', replacement = ''),
+			   				sapply(lapply(x$classChoices,gsub,pattern = '\\||/|\\*', replacement = ''),
 			   					   paste,collapse = '*'),
 			   				sep = "/",collapse = '|'),
 			   stringsAsFactors = FALSE)
@@ -603,7 +603,7 @@ shortestDigest = function(vector){
 charTable$name %<>% shortestDigest
 charTable$ip %<>% shortestDigest
 charTable$finger %<>% shortestDigest
-charTable %<>% select(-hash)
+# charTable %<>% select(-hash)
 # unsecureFields = c('ip','finger','hash')
 # charTable = charTable[!names(charTable) %in% unsecureFields]
 
@@ -763,7 +763,8 @@ table2list = function(charTable){
 			 	char$choices %>% strsplit('\\|') %>% {.[[1]][j]} %>% strsplit('/') %>% {.[[1]][2]} %>% strsplit('\\*') %>% {.[[1]]}
 			 }) %>% {names(.) = char$choices %>% strsplit('\\|') %>% unlist %>% strsplit('/') %>% map_chr(1);.},
 			 location = list(country = char$country %>% as.character,
-			 				countryCode = char$countryCode %>% as.character)
+			 				countryCode = char$countryCode %>% as.character),
+			 hash = char$hash
 			 )
 	}) %>% {names(.) = paste(charTable$alias,charTable$class);.}
 }
@@ -801,22 +802,5 @@ cred = git2r::cred_token()
 git2r::push(repo,credentials = cred)
 
 
-# token = readLines('data-raw/auth')
-# Sys.setenv(GITHUB_PAT = token)
-# cred = git2r::cred_token()
-#
-# ogbox::setDate(format(Sys.Date(),'%Y-%m-%d'))
-# version = ogbox::getVersion()
-# version %<>% strsplit('\\.') %>% {.[[1]]}
-#
-# ogbox::setVersion(paste(version[1],version[2],
-# 						format(Sys.Date(),'%y.%m.%d') %>%
-# 							gsub(pattern = '\\.0','.',x=.),sep='.'))
-#
-# add(repo,'DESCRIPTION')
-#
-#
-# git2r::commit(repo,message = paste('Weekly auto update'))
-# git2r::push(repo,credentials = cred)
 
 
