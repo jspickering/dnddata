@@ -13,10 +13,25 @@ library(rgeolocate) # in case I deal with geo placement. not used now
 library(here)
 library(data.table)
 library(randomNames) # add friendlier names. github.com/oganm/randomNames
-
+library(jsonlite)
 usethis::use_data_raw()
 
+set_file_wd = function(){
+	command = commandArgs(trailingOnly = FALSE)
+
+	file = gsub('--file=','',command[grepl('--file',command)])
+	if(length(file) == 1){
+		setwd(dirname(file))
+	}
+}
+set_file_wd()
+
+setwd(here())
+
 # memoisation for quick access
+# fc <- cache_filesystem("data-raw/memoiseCache")
+# memoImportChar = memoise(importCharacter, cache = fc)
+
 if(file.exists('memoImportChar.rds')){
 	memoImportChar = readRDS(here('memoImportChar.rds'))
 } else {
@@ -34,7 +49,6 @@ charFiles = c(list.files('/srv/shiny-server/printSheetApp/chars/',full.names = T
 
 
 
-
 print('reading char files')
 
 fileInfo = file.info(charFiles)
@@ -45,7 +59,6 @@ fileInfo = fileInfo[order(fileInfo$mtime),]
 chars = charFiles %>% lapply(function(x){
 	memoImportChar(file = x)
 })
-saveRDS(memoImportChar,here('memoImportChar.rds'))
 
 # get date information. dates before 2018-04-16 are not reliable
 # get user fingerprint and IP
@@ -73,7 +86,8 @@ names(chars) = chars %>% map_chr(function(x){
 	paste(x$Name,x$ClassField)
 })
 
-# create the table
+# create the table. it initially creates the table because that's what my original pipeline did... later I will convert the
+# relevant bits into a list, making this a little silly.
 charTable = chars %>% map(function(x){
 	data.frame(ip = x$ip,
 			   finger = x$finger,
@@ -85,6 +99,7 @@ charTable = chars %>% map(function(x){
 			   class = paste(x$classInfo[,1],x$classInfo[,3],collapse='|'),
 			   justClass =  x$classInfo[,'Class'] %>% paste(collapse ='|'),
 			   subclass = x$classInfo[,'Archetype'] %>% paste(collapse ='|'),
+			   classFreeText = x$ClassField,
 			   level = x$classInfo[,'Level'] %>% as.integer() %>% sum,
 			   feats = x$feats[x$feats !=''] %>% paste(collapse = '|'),
 			   HP = x$currentHealth,
@@ -99,14 +114,23 @@ charTable = chars %>% map(function(x){
 			   skills = x$skillProf %>% which %>% names %>% paste(collapse = '|'),
 			   weapons = x$weapons %>% map_chr('name') %>% gsub("\\|","",.)  %>% paste(collapse = '|'),
 			   spells = glue('{x$spells$name %>% gsub("\\\\*|\\\\|","",.)}*{x$spells$level}') %>% glue_collapse('|') %>% {if(length(.)!=1){return('')}else{return(.)}},
-			   day = x$date %>%  format('%m %d %Y'),
+			   # day = x$date %>%  format('%m %d %Y'),
 			   castingStat = names(x$abilityMods[x$castingStatCode+1]),
+			   choices = paste(gsub('\\||/|\\*','',names(x$classChoices)),
+			   				sapply(sapply(x$classChoices,gsub,pattern = '\\||/|\\*', replacement = ''),
+			   					   paste,collapse = '*'),
+			   				sep = "/",collapse = '|'),
 			   stringsAsFactors = FALSE)
 }) %>% do.call(rbind,.)
 
+# get rid of characters who start with the character generator but continue to level up by hand (unpaid users)
+freeTextLevel = charTable$classFreeText %>% str_extract_all('[0-9]+') %>% lapply(as.integer) %>% sapply(sum)
+
+charTable %<>% filter(!(level == 1 & freeTextLevel !=1))
+charTable %<>% select(-classFreeText)
+
 # remove multiple occurances of the same file
 charTable %<>% arrange(desc(date)) %>%  filter(!duplicated(hash))
-
 
 
 if(file.exists('memoIPgeolocate.rds')){
@@ -154,7 +178,7 @@ races = c(Aarakocra = 'Aarakocra',
 		  Gnome = 'Gnome',
 		  Goblin='^Goblin$',
 		  Goliath = 'Goliath',
-		  'Half-Elf' = '(Half-Elf)|(^Variant$)',
+		  'Half-Elf' = '(^Half-Elf$)|(^Variant$)',
 		  'Half-Orc' = 'Half-Orc',
 		  Halfling = 'Halfling',
 		  Hobgoblin = 'Hobgoblin$',
@@ -171,10 +195,12 @@ races = c(Aarakocra = 'Aarakocra',
 		  Vedalken = 'Violetken|Vedalken',
 		  Minotaur = 'Minotaur',
 		  Centaur = 'Centaur',
-		  Loxodon = 'Elephantine|Luxodon',
+		  Loxodon = 'Elephantine|Luxodon|Loxodon',
 		  `Simic hybrid` = 'Animal Hybrid|Simic Hybrid',
 		  Warforged = 'Warforged|Envoy|Juggernaut|Juggeenaut',
 		  Changeling = 'Changeling',
+		  Shifter = 'Shifter',
+		  Kalashtar = 'Kalashtar',
 		  Eladrin = 'Eladrin')
 
 align = list(NG = c('ng',
@@ -191,9 +217,10 @@ align = list(NG = c('ng',
 					'n good',
 					'\U0001f937 neutral good',
 					'neutral goodsskkd',
-					'n/g'),
+					'n/g',
+					'neutral  good'),
 			 CG = c('chaotic good',
-			 	   'caótico neutro',
+			 	   'caótico bueno',
 			 	   'cg',
 			 	   'chacotic good',
 			 	   'good chaotic'),
@@ -209,12 +236,18 @@ align = list(NG = c('ng',
 			 	   'netral',
 			 	   'n',
 			 	   'true neutral',
-			 	   'tn'),
+			 	   'tn',
+			 	   'true-neutral',
+			 	   'leal neutro'),
 			 CN = c('chaotic neutral',
+			 	   'caótico neutro',
+			 	   'chaotic netural',
 			 	   'chaotic',
 			 	   'cn',
 			 	   'chaotic nuetral',
-			 	   'neutral chaotic'),
+			 	   'chatoic neutral',
+			 	   'neutral chaotic',
+			 	   'chaotic - neutral'),
 			 LN = c('lawful neutral',
 			 	   'lawful',
 			 	   'lawful/neutral',
@@ -223,7 +256,7 @@ align = list(NG = c('ng',
 			 	   'ln',
 			 	   'lawful neutral (good-ish)',
 			 	   'legal good'),
-			 NE = c('neutral evil','ne'),
+			 NE = c('neutral evil','ne','lawfuo evil'),
 			 LE = c('lawful evil',
 			 	   'le'),
 			 CE = c('ce',
@@ -279,6 +312,9 @@ class(spells) = 'list'
 
 legitSpells =spells %>% names
 
+trimPunct = function(char){
+	gsub('[[:punct:]]+','',char)
+}
 
 processedSpells = charTable$spells %>% sapply(function(x){
 	if(x==''){
@@ -287,7 +323,7 @@ processedSpells = charTable$spells %>% sapply(function(x){
 	spellNames = x %>% str_split('\\|') %>% {.[[1]]} %>% str_split('\\*') %>% map_chr(1)
 	spellLevels =  x %>% str_split('\\|') %>% {.[[1]]} %>% str_split('\\*') %>% map_chr(2)
 
-	distanceMatrix = adist(tolower(spellNames), tolower(legitSpells),costs = list(ins=2, del=2, sub=3), counts = TRUE)
+	distanceMatrix = adist(tolower(spellNames), tolower(legitSpells),costs = list(ins=4, del=4, sub=6), counts = TRUE)
 
 	rownames(distanceMatrix) = spellNames
 	colnames(distanceMatrix) = legitSpells
@@ -299,20 +335,83 @@ processedSpells = charTable$spells %>% sapply(function(x){
 	ins = attributes(distanceMatrix)$counts[,distanceMatrix %>% apply(1,which.min),'ins'] %>% as.matrix  %>% diag
 	del = attributes(distanceMatrix)$counts[,distanceMatrix %>% apply(1,which.min),'del'] %>% as.matrix %>% diag
 	sub = attributes(distanceMatrix)$counts[,distanceMatrix %>% apply(1,which.min),'sub'] %>% as.matrix %>% diag
+	# check if all words of the prediction is in the written spell
 	isItIn = predictedSpell %>% str_split(' |/') %>% map(function(x){
 		x[!x %in% c('and','or','of','to','the')]
 	}) %>%
-	{sapply(1:length(.),function(i){
-		all(sapply(.[[i]],grepl,x =spellNames[i],ignore.case=TRUE))
-	})}
+		{sapply(1:length(.),function(i){
+			all(sapply(trimPunct(tolower(.[[i]])),grepl,x =trimPunct(tolower(spellNames[i])),fixed = TRUE))
+		})}
 
-	spellFrame = data.frame(spellNames,predictedSpell,spellLevels,predictedSpellLevel,distanceScores,ins,del,sub,isItIn,stringsAsFactors = FALSE)
+	# check if all words of the spell is in the prediction
+	isTheSpellIn = spellNames%>% str_split(' |/') %>% map(function(x){
+		x[!x %in% c('and','or','of','to','the')]
+	}) %>%
+		{sapply(1:length(.),function(i){
+			all(sapply(trimPunct(tolower(.[[i]])),grepl,x =trimPunct(tolower(predictedSpell[i])), fixed = TRUE))
+		})}
 
-	spellFrame %<>% filter(as.integer(spellLevels)==predictedSpellLevel &( isItIn | (sub < 5 & del < 5 & ins < 5)))
+	spellFrame = data.frame(spellNames,predictedSpell,spellLevels,predictedSpellLevel,distanceScores,ins,del,sub,isItIn,isTheSpellIn,stringsAsFactors = FALSE)
+
+	# special cases for some badly matched spells
+	if(any(trimws(tolower(spellFrame$spellNames)) == 'arcane hand' & spellFrame$spellLevels==5)){
+		spellFrame[trimws(tolower(spellFrame$spellNames)) == 'arcane hand' & spellFrame$spellLevels==5,]$predictedSpell = "Bigby's Hand"
+		spellFrame[trimws(tolower(spellFrame$spellNames)) == 'arcane hand'  & spellFrame$spellLevels==5,]$isItIn = TRUE
+		spellFrame[trimws(tolower(spellFrame$spellNames)) == 'arcane hand'  & spellFrame$spellLevels==5,]$predictedSpellLevel = 5
+
+	}
+
+	if(any(trimws(tolower(spellFrame$spellNames)) == 'acid arrow' & spellFrame$spellLevels==2)){
+		spellFrame[trimws(tolower(spellFrame$spellNames)) == 'acid arrow' & spellFrame$spellLevels==2,]$predictedSpell = "Melf's Acid Arrow"
+		spellFrame[trimws(tolower(spellFrame$spellNames)) == 'acid arrow' & spellFrame$spellLevels==2,]$isItIn = TRUE
+		spellFrame[trimws(tolower(spellFrame$spellNames)) == 'acid arrow' & spellFrame$spellLevels==2,]$predictedSpellLevel = 2
+
+	}
+
+	if(any(trimws(tolower(spellFrame$spellNames)) == 'hideaous laughter' & spellFrame$spellLevels==1)){
+		spellFrame[trimws(tolower(spellFrame$spellNames)) == 'hideaous laughter' & spellFrame$spellLevels==1,]$predictedSpell = "Tasha's Hideous Laughter"
+		spellFrame[trimws(tolower(spellFrame$spellNames)) == 'hideaous laughter' & spellFrame$spellLevels==1,]$isItIn = TRUE
+		spellFrame[trimws(tolower(spellFrame$spellNames)) == 'hideaous laughter' & spellFrame$spellLevels==1,]$predictedSpellLevel = 1
+
+	}
+
+	# remove matches that don't satisfy the similarity criteria
+	spellFrame$predictedSpell[!(as.integer(spellFrame$spellLevels)==spellFrame$predictedSpellLevel &(spellFrame$isTheSpellIn | spellFrame$isItIn | (spellFrame$sub < 10 & spellFrame$del < 10 & spellFrame$ins < 10)))] = ''
+	spellFrame$predictedSpellLevel[!(as.integer(spellLevels)==predictedSpellLevel &(isTheSpellIn | isItIn | (sub < 10 & del < 10 & ins < 10)))] = ''
+	# spellFrame %<>% filter(as.integer(spellLevels)==predictedSpellLevel &(isTheSpellIn | isItIn | (sub < 5 & del < 5 & ins < 5)))
 
 	paste0(spellFrame$predictedSpell,'*',spellFrame$predictedSpellLevel,collapse ='|')
 })
+
 charTable$processedSpells = processedSpells
+
+
+# manual checking of randomly selected data. select random spell/processed spell pairs. manually examine them to make sure
+# they are allright and estimate accuracy.
+withSpells = which(charTable$spells !='')
+
+withSpells %>% lapply(function(i){
+	rawSpells = charTable$spells[i] %>% strsplit('\\|') %>% {.[[1]]}
+	pSpells =  charTable$processedSpells[i] %>% strsplit('\\|') %>% {.[[1]]}
+	seq_along(rawSpells) %>% sapply(function(j){
+		c(i,rawSpells[j],pSpells[j])
+	}) %>% t
+}) %>% do.call(rbind,.) ->  spellProcessedPairs
+
+# 200 random pairs
+# spellProcessedPairs[spellProcessedPairs[,3] !='*' & spellProcessedPairs[,2] != spellProcessedPairs[,3],][sample(1:nrow(spellProcessedPairs[spellProcessedPairs[,3] !='*' & spellProcessedPairs[,2] != spellProcessedPairs[,3],]),200),]
+
+# all spells that couldn't be matched
+# spellProcessedPairs[spellProcessedPairs[,3] =='*',-3] %>% View
+
+spellCount = spellProcessedPairs %>% nrow
+standardSpellCount = nrow(spellProcessedPairs[spellProcessedPairs[,3] !='*' & spellProcessedPairs[,2] == spellProcessedPairs[,3],])
+nonStandardSpellCount = nrow(spellProcessedPairs[spellProcessedPairs[,3] !='*' & spellProcessedPairs[,2] != spellProcessedPairs[,3],])
+mismatchCount = spellProcessedPairs[spellProcessedPairs[,3] =='*',-3] %>% nrow
+
+nonStandardSpellCount/spellCount * 100
+mismatchCount/spellCount * 100
+standardSpellCount/spellCount * 100
 
 # x = 1:nrow(charTable) %>% sapply(function(i){adist(charTable$spells[i],charTable$processedSpells[i])}) %>% {.>20} %>% {charTable$spells[.]} %>% {.[43]}
 # x = 1:nrow(charTable) %>% sapply(function(i){adist(charTable$spells[i],charTable$processedSpells[i])}) %>% {.>20} %>% {charTable$spells[.]} %>% {.[70]}
@@ -357,14 +456,41 @@ processedWeapons = charTable$weapons %>% sapply(function(x){
 		x[!x %in% c('and','or','of','to','the')]
 	}) %>%
 	{sapply(1:length(.),function(i){
-		all(sapply(.[[i]],grepl,x =weaponNames[i],ignore.case=TRUE))
+		all(sapply(trimPunct(.[[i]]),grepl,x =trimPunct(weaponNames[i]),ignore.case=TRUE))
 	})}
 
-	weaponFrame = data.frame(weaponNames,predictedWeapon,distanceScores,ins,del,sub,isItIn,stringsAsFactors = FALSE)
+	isTheWeaponIn = weaponNames%>% str_split(' |/') %>% map(function(x){
+		x[!x %in% c('and','or','of','to','the')]
+	}) %>%
+		{sapply(1:length(.),function(i){
+			all(sapply(trimPunct(tolower(.[[i]])),grepl,x =trimPunct(tolower(predictedWeapon[i])), fixed = TRUE))
+		})}
 
-	weaponFrame %<>% filter(isItIn|  (sub < 2 & del < 2 & ins < 2))
+	weaponFrame = data.frame(weaponNames,predictedWeapon,distanceScores,ins,del,sub,isItIn,isTheWeaponIn,stringsAsFactors = FALSE)
 
-	paste0(weaponFrame$predictedWeapon %>% unique,collapse ='|')
+
+	if(any(trimPunct(trimws(tolower(weaponFrame$weaponNames))) == 'hand crossbow')){
+		weaponFrame[trimPunct(trimws(tolower(weaponFrame$weaponNames))) == 'hand crossbow',]$predictedWeapon = 'Crossbow, hand'
+		weaponFrame[trimPunct(trimws(tolower(weaponFrame$weaponNames))) == 'hand crossbow',]$isItIn = TRUE
+
+	}
+
+	if(any(trimPunct(trimws(tolower(weaponFrame$weaponNames))) == 'heavy crossbow')){
+		weaponFrame[trimPunct(trimws(tolower(weaponFrame$weaponNames))) == 'heavy crossbow',]$predictedWeapon = 'Crossbow, Heavy'
+		weaponFrame[trimPunct(trimws(tolower(weaponFrame$weaponNames))) == 'heavy crossbow',]$isItIn = TRUE
+	}
+
+	if(any(trimPunct(trimws(tolower(weaponFrame$weaponNames))) == '')){
+		weaponFrame[trimPunct(trimws(tolower(weaponFrame$weaponNames))) == '',]$predictedWeapon = ''
+		weaponFrame[trimPunct(trimws(tolower(weaponFrame$weaponNames))) == '',]$isItIn = TRUE
+	}
+
+	weaponFrame$predictedWeapon[!(weaponFrame$isTheWeaponIn | weaponFrame$isItIn | (weaponFrame$sub < 2 & weaponFrame$del<2 & weaponFrame$ins<2))] = ''
+
+
+	# weaponFrame %<>% filter(isItIn|  (sub < 2 & del < 2 & ins < 2))
+
+	paste0(weaponFrame$predictedWeapon,collapse ='|')
 })
 
 charTable$processedWeapons = processedWeapons
@@ -372,7 +498,26 @@ charTable$processedWeapons = processedWeapons
 # x = 1:nrow(charTable) %>% sapply(function(i){adist(charTable$weapons[i],charTable$processedWeapons[i])}) %>% {.>20} %>% {charTable$weapons[.]} %>% {.[10]}
 
 
+withWeapons = which(charTable$weapons !='')
+withWeapons %>% lapply(function(i){
+	rawWeapons = charTable$weapons[i] %>% stringr::str_split('\\|') %>% {.[[1]]}
+	pWeapons =  charTable$processedWeapons[i] %>% stringr::str_split('\\|') %>% {.[[1]]}
+	seq_along(rawWeapons) %>% sapply(function(j){
+		c(i,rawWeapons[j],pWeapons[j])
+	}) %>% t
+}) %>% do.call(rbind,.) ->  weaponProcessedPairs
 
+# weaponProcessedPairs[weaponProcessedPairs[,2] != weaponProcessedPairs[,3] & weaponProcessedPairs[,3]!='',] %>% {.[sample(nrow(.),200),]} %>% View
+
+
+weaponCount = weaponProcessedPairs %>% nrow
+standardWeaponCount = nrow(weaponProcessedPairs[weaponProcessedPairs[,2] == weaponProcessedPairs[,3],])
+nonStandardWeaponCount = nrow(weaponProcessedPairs[weaponProcessedPairs[,2] != weaponProcessedPairs[,3] & weaponProcessedPairs[,3] !='',])
+mismatchCount = weaponProcessedPairs[weaponProcessedPairs[,3] =='',] %>% nrow
+
+nonStandardWeaponCount/weaponCount * 100
+mismatchCount/weaponCount * 100
+standardWeaponCount/weaponCount * 100
 
 # user id ------
 # userID = c()
@@ -458,7 +603,7 @@ shortestDigest = function(vector){
 charTable$name %<>% shortestDigest
 charTable$ip %<>% shortestDigest
 charTable$finger %<>% shortestDigest
-charTable$hash %<>% shortestDigest
+charTable %<>% select(-hash)
 # unsecureFields = c('ip','finger','hash')
 # charTable = charTable[!names(charTable) %in% unsecureFields]
 
@@ -522,7 +667,7 @@ getUniqueTable = function(charTable){
 
 	singleCharDuplicates %>% sapply(function(x){
 		char = singleClassed[x,]
-		print(char[['name']])
+		# print(char[['name']])
         multiChar = multiClassed %>%
         	filter(name %in% char[['name']] & grepl(char[['justClass']],justClass))
         if(nrow(multiChar) == 0){
@@ -531,7 +676,7 @@ getUniqueTable = function(charTable){
 
         isHigher = any(multiChar$level > char[['level']])
         if (nrow(multiChar)>1){
-        	warning("multiple matches")
+        	# warning("multiple matches")
         }
         return(isHigher)
 	}) -> isDuplicate
@@ -559,16 +704,103 @@ usethis::use_data(dnd_chars_unique,overwrite = TRUE)
 usethis::use_data(dnd_chars_singleclass,overwrite = TRUE)
 usethis::use_data(dnd_chars_multiclass,overwrite = TRUE)
 
-# format
+table2list = function(charTable){
+	seq_len(nrow(charTable)) %>% lapply(function(i){
+		char = charTable[i,]
 
-glue("
-	 #' @format A data frame with 30 variables:
-	 #' \\describe")
+		list(ip = char$ip,
+			 finger = char$finger,
+			 name = list(
+			 	hash = char$name,
+			 	alias = char$alias),
+			 race = list(
+			 	race = char$race,
+			 	processedRace = char$processedRace
+			 ),
+			 background = char$background,
+			 date = char$date,
+			 class = seq_len(strsplit(char$class,'\\|') %>% {.[[1]]} %>% length) %>%
+			 	lapply(function(j){
+			 		list(
+			 			class = char$justClass %>% strsplit('\\|') %>% {.[[1]][j]},
+			 			subclass = char$subclass %>% strsplit('\\|') %>% {.[[1]][j]},
+			 			level = char$class %>% strsplit('\\|') %>% {.[[1]][j]} %>% str_extract('[0-9]+') %>% as.integer()
+			 		)
+			 	}) %>% {names(.) = strsplit(char$justClass,'\\|') %>% {.[[1]]};.},
+			 level = char$level,
+			 levelGroup = char$levelGroup,
+			 feats = char$feats %>% strsplit('\\|') %>% {.[[1]]},
+			 HP = char$HP,
+			 AC = char$AC,
+			 attributes = list(Str = char$Str,
+			 				  Dex = char$Dex,
+			 				  Con = char$Con,
+			 				  Int = char$Int,
+			 				  Wis = char$Wis,
+			 				  Cha = char$Cha),
+			 alignment = list(
+			 	alignment = char$alignment,
+			 	processedAlignment = char$processedAlignment,
+			 	lawful = char$lawful,
+			 	good = char$good
+			 ),
+			 skills = char$skills %>% strsplit('\\|') %>% {.[[1]]},
+			 weapons = seq_along(strsplit(char$weapons,'\\|') %>% {.[[1]]}) %>% lapply(function(j){
+			 	list(
+			 		weapon = char$weapons %>% strsplit('\\|') %>% {.[[1]][j]},
+			 		processedWeapon = char$processedWeapons %>% strsplit('\\|') %>% {.[[1]][j]}
+			 	)
+			 }) %>% {names(.) = strsplit(char$weapons,'\\|') %>% {.[[1]]};.},
+			 spells = seq_along(strsplit(char$spells,'\\|') %>% {.[[1]]}) %>% lapply(function(j){
+			 	list(
+			 		spell = char$spells %>% strsplit('\\|') %>% {.[[1]][j]} %>% strsplit('\\*') %>% {.[[1]][1]},
+			 		level = char$spells %>% strsplit('\\|') %>% {.[[1]][j]} %>% strsplit('\\*') %>% {.[[1]][2]},
+			 		processedSpell = char$processedSpells %>% strsplit('\\|') %>% {.[[1]][j]} %>% strsplit('\\*') %>% {.[[1]][1]}
+			 	)
+			 }) %>% {names(.) = strsplit(char$spells,'\\|') %>% {.[[1]]};.},
+			 castingStat = char$castingStat,
+			 choices = seq_along(strsplit(char$choices,'\\|') %>% {.[[1]]}) %>% lapply(function(j){
+			 	char$choices %>% strsplit('\\|') %>% {.[[1]][j]} %>% strsplit('/') %>% {.[[1]][2]} %>% strsplit('\\*') %>% {.[[1]]}
+			 }) %>% {names(.) = char$choices %>% strsplit('\\|') %>% unlist %>% strsplit('/') %>% map_chr(1);.},
+			 location = list(country = char$country %>% as.character,
+			 				countryCode = char$countryCode %>% as.character)
+			 )
+	}) %>% {names(.) = paste(charTable$alias,charTable$class);.}
+}
+
+dnd_chars_unique_list = table2list(dnd_chars_unique)
+dnd_chars_singleclass_list = table2list(dnd_chars_singleclass)
+dnd_chars_multiclass_list = table2list(dnd_chars_multiclass)
+dnd_chars_all_list = table2list(dnd_chars_all)
+
+
+
+usethis::use_data(dnd_chars_unique_list,overwrite = TRUE)
+usethis::use_data(dnd_chars_singleclass_list,overwrite = TRUE)
+usethis::use_data(dnd_chars_multiclass_list,overwrite = TRUE)
+usethis::use_data(dnd_chars_all_list,overwrite = TRUE)
+
+dnd_chars_unique_list %>% jsonlite::toJSON(pretty = TRUE) %>% writeLines(here('data-raw/dnd_chars_unique.json'))
+dnd_chars_all_list %>% jsonlite::toJSON(pretty = TRUE) %>% writeLines(here('data-raw/dnd_chars_all.json'))
 
 # github updates ------
-# library(git2r)
-# repo = repository(here('.'))
-# add(repo, 'data-raw/.')
+library(git2r)
+repo = repository(here('.'))
+add(repo, 'data-raw/dnd_chars_all.tsv')
+add(repo, 'data-raw/dnd_chars_unique.tsv')
+add(repo, 'data-raw/dnd_chars_all.json')
+add(repo, 'data-raw/dnd_chars_unique.json')
+
+add(repo, 'data/*')
+
+
+commit(repo, "auto update")
+token = readLines(here('data-raw/auth'))
+Sys.setenv(GITHUB_PAT = token)
+cred = git2r::cred_token()
+git2r::push(repo,credentials = cred)
+
+
 # token = readLines('data-raw/auth')
 # Sys.setenv(GITHUB_PAT = token)
 # cred = git2r::cred_token()
