@@ -12,7 +12,7 @@ devtools::load_all()
 
 # dnddata
 
-   * [dnddata (Work In Progress)](#dnddata-work-in-progress)
+   * [dnddata](#dnddata)
       * [Usage/installation](#usageinstallation)
       * [Examples](#examples)
       * [About the data](#about-the-data)
