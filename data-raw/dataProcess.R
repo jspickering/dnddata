@@ -9,7 +9,7 @@ library(ogbox) # github.com/oganm/ogbox
 library(wizaRd) # github.com/oganm/wizaRd
 library(stringr)
 library(memoise)
-library(rgeolocate) # in case I deal with geo placement. not used now
+library(rgeolocate)
 library(here)
 library(data.table)
 library(randomNames) # add friendlier names. github.com/oganm/randomNames
@@ -788,12 +788,13 @@ dnd_chars_all_list %>% jsonlite::toJSON(pretty = TRUE) %>% writeLines(here('data
 ogbox::purge()
 gc()
 
+print('rendering readme')
 rmarkdown::render(input = 'README.Rmd',output_file = 'README.md')
 
 ogbox::purge()
 gc()
 
-
+print('pushing to github')
 # github updates ------
 library(git2r)
 repo = repository(here('.'))
