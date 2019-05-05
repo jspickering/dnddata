@@ -785,31 +785,4 @@ usethis::use_data(dnd_chars_all_list,overwrite = TRUE)
 dnd_chars_unique_list %>% jsonlite::toJSON(pretty = TRUE) %>% writeLines(here('data-raw/dnd_chars_unique.json'))
 dnd_chars_all_list %>% jsonlite::toJSON(pretty = TRUE) %>% writeLines(here('data-raw/dnd_chars_all.json'))
 
-ogbox::purge()
-gc()
 
-print('rendering readme')
-rmarkdown::render(input = 'README.Rmd',output_file = 'README.md')
-
-ogbox::purge()
-gc()
-
-print('pushing to github')
-# github updates ------
-library(git2r)
-repo = repository(here('.'))
-add(repo, 'data-raw/dnd_chars_all.tsv')
-add(repo, 'README.md')
-add(repo, 'README_files/*')
-add(repo, 'data-raw/dnd_chars_unique.tsv')
-add(repo, 'data-raw/dnd_chars_all.json')
-add(repo, 'data-raw/dnd_chars_unique.json')
-
-add(repo, 'data/*')
-
-
-commit(repo, "auto update")
-token = readLines(here('data-raw/auth'))
-Sys.setenv(GITHUB_PAT = token)
-cred = git2r::cred_token()
-git2r::push(repo,credentials = cred)
