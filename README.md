@@ -36,7 +36,7 @@ otherwise identical.
 
 ## Usage/installation
 
-If you are R user, you can simply install this package and load it to
+If you are an R user, you can simply install this package and load it to
 access the dataset
 
 ``` r
@@ -46,7 +46,7 @@ library(dnddata)
 
 Try `?tables`, `?lists` to see available objects and their descriptions
 
-If you are not an R user access the files within the
+If you are not an R user, access the files within the
 [data-raw](data-raw) directory. The files are available as JSON and TSV.
 You can find the field descriptions [below](#columnelement-description).
 `dnd_chars_all` files contain all characters that are submitted while

@@ -38,7 +38,7 @@ in the json format. The data included is otherwise identical.
 
 ## Usage/installation
 
-If you are R user, you can simply install this package and load it to access the dataset
+If you are an R user, you can simply install this package and load it to access the dataset
 
 ```r
 devtools::install_github('oganm/dnddata')
@@ -46,7 +46,7 @@ library(dnddata)
 ```
 Try `?tables`, `?lists` to see available objects and their descriptions
 
-If you are not an R user access the files within the [data-raw](data-raw) directory. The files
+If you are not an R user, access the files within the [data-raw](data-raw) directory. The files
 are available as JSON and TSV. You can find the field descriptions 
 [below](#columnelement-description). `dnd_chars_all` files contain all characters
 that are submitted while `dnd_chars_unique` files are filtered to include unique
