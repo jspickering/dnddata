@@ -21,7 +21,12 @@ web applications [printSheetApp](https://oganm.com/shiny/printSheetApp)
 and [interactiveSheet](https://oganm.com/shiny/interactiveSheet). It is
 a superset of the dataset I previously released under
 [oganm/dndstats](https://oganm.github.io/dndstats) with a much larger
-sample (2775 characters) size and more data fields.
+sample (2775 characters) size and more data fields. It was inspired by
+the
+[FiveThirtyEight](https://fivethirtyeight.com/features/is-your-dd-character-rare/)
+article on race/class proportions and the data seems to correlate well
+with those results (see my [dndstats
+article](https://oganm.github.io/dndstats)).
 
 Along with a simple table (an R `data.frame` in package), the data is
 also present in json format (an R `list` in package). In the table
@@ -264,13 +269,13 @@ all potential problems with the data fields
   - **processedAlignment:** Alignment is a free text field in the app
     and optional. Many characters do not enter their alignments. To
     create the standardized alignment fields, I went through every entry
-    and manually assignment every alternative spelling to the
-    standardized version. These include mispelled entries, abreviations,
-    entries in different languages etc. In cases where I wasn’t able to
-    match (eg. what the hell is “lawful cute”), this field was left
-    blank. Between automatic updates new and exciting ways to describe
-    alignment can come into play. Unless I manually added these new
-    entries, they will also appear blank.
+    and manually assigned every alternative spelling to the standardized
+    version. These include mispelled entries, abreviations, entries in
+    different languages etc. In cases where I wasn’t able to match (eg.
+    what the hell is “lawful cute”), this field was left blank. Between
+    automatic updates new and exciting ways to describe alignment can
+    come into play. Unless I manually added these new entries, they will
+    also appear blank.
 
   - **processedSpells:** The mobile app allows entering free text into
     the spell fields. Which means I have to deal with people writing
