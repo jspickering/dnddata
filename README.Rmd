@@ -44,9 +44,11 @@ library(dnddata)
 ```
 Try `?tables`, `?lists` to see available objects and their descriptions
 
-If you are not an R user access the files within the `data-raw` directory. The files
+If you are not an R user access the files within the [data-raw](data-raw) directory. The files
 are available as JSON and TSV. You can find the field descriptions 
-[below](#columnelement-description).
+[below](#columnelement-description). `dnd_chars_all` files contain all characters
+that are submitted while `dnd_chars_unique` files are filtered to include unique
+characters.
 
 ## Examples
 
