@@ -210,12 +210,23 @@ dnd_chars_unique_list %>% purrr::map('choices') %>%
 
 - **alias:** A friendly alias that correspond to each uniqe name
 
+The list version of this dataset contains all of these fields but they are organised
+a little differently, keeping fields like `spells` and `processedSpells` together.
+
 ### Caveats
 
 #### Possible Issues with data fields
+
 Some data fields are more reliable than others. Below is a summary of all potential problems with the data fields
 
-* **processedAlignment:** Alignment is a free text field in the app and optional. Many characters do not enter their alignments
+* **ip and browser fingerprints:** Both IP and browser fingerprints are represented as hashes.
+I keep them to have an idea of individual users but did not make use of them so far. Note
+that same IPs can be shared by an entire region in some cases.
+
+* **processedAlignment:** Alignment is a free text field in the app and optional. Many characters do not enter their alignments. To create the standardized alignment fields, I went through every entry and manually assignment every alternative spelling to the standardized version. These include mispelled entries, abreviations, entries in different languages etc. In cases where I wasn't able
+to match (eg. what the hell is "super good"), this field was left blank. Between automatic updates
+new and exciting ways to describe alignment can come into play. Unless I manually added these
+new entries, they will also appear blank.
 
 * **processedSpells:** The mobile app allows entering free text into the spell fields. Which means I have
 to deal with people writing spells in a non-standard way with typos, abbreviations or additional information such as range, damage dice. I use some heuristics to match the entered text to a list of all published spells. Shortly, I look at the Levenshtein distance between the entry and the published spells and match the entry with the top result if 
