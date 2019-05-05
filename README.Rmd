@@ -57,7 +57,7 @@ I will be using the list form of the dataset as a basis here.
 Let's replicate that plot from [fivethirtyeight](https://fivethirtyeight.com/features/is-your-dd-character-rare/)
 as I did in my [original article](https://oganm.github.io/dndstats/).
 
-```{r,fig.width=9}
+```{r,fig.width=9,message=FALSE}
 library(purrr)
 library(ggplot2)
 library(magrittr)
