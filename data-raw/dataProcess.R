@@ -59,6 +59,7 @@ fileInfo = fileInfo[order(fileInfo$mtime),]
 chars = charFiles %>% lapply(function(x){
 	memoImportChar(file = x)
 })
+saveRDS(memoImportChar,'memoImportChar.rds')
 
 # get date information. dates before 2018-04-16 are not reliable
 # get user fingerprint and IP
