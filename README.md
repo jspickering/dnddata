@@ -21,7 +21,7 @@ web applications [printSheetApp](https://oganm.com/shiny/printSheetApp)
 and [interactiveSheet](https://oganm.com/shiny/interactiveSheet). It is
 a superset of the dataset I previously released under
 [oganm/dndstats](https://oganm.github.io/dndstats) with a much larger
-sample (2775 characters) size and more data fields. It was inspired by
+sample (2939 characters) size and more data fields. It was inspired by
 the
 [FiveThirtyEight](https://fivethirtyeight.com/features/is-your-dd-character-rare/)
 article on race/class proportions and the data seems to correlate well
@@ -313,7 +313,7 @@ adding additional information about the spell.
     “crossbow, hand”). Here the weapons that weren’t matched were
     spell names or homebrew weapons.
 
-80% of all weapons parsed did not require any modification. 14% of were
+81% of all weapons parsed did not require any modification. 14% of were
 only able to be matched through the heuristics. A manual examination of
 a random seleciton of these matches revealed 1/200 mistake. 5% of the
 weapon entries were not matched to an official weapon.
