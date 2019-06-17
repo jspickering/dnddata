@@ -12,7 +12,7 @@ library(memoise)
 library(rgeolocate)
 library(here)
 library(data.table)
-library(randomNames) # add friendlier names. github.com/oganm/randomNames
+library(randomIDs) # add friendlier names. github.com/oganm/randomIDs
 library(jsonlite)
 usethis::use_data_raw()
 
