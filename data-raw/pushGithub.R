@@ -1,4 +1,5 @@
 library(here)
+library(magrittr)
 
 set_file_wd = function(){
 	command = commandArgs(trailingOnly = FALSE)
@@ -12,8 +13,20 @@ set_file_wd()
 
 setwd(here())
 
+version = ogbox::getVersion()
+version %<>% strsplit('\\.') %>% {.[[1]]}
+
+dateTail = format(Sys.Date(),'%y.%m.%d') %>%
+	gsub(pattern = '\\.0','.',x=.) %>% strsplit('\\.') %>% {.[[1]]}
+version[3:5] = dateTail
+ogbox::setVersion(paste(version,collapse = '.'))
+ogbox::setDate(format(Sys.Date(),'%Y-%m-%d'))
+
+
+
 library(git2r)
 repo = repository(here('.'))
+add(repo, 'DESCRIPTION')
 add(repo, 'data-raw/dnd_chars_all.tsv')
 add(repo, 'README.md')
 add(repo, 'README_files/*')
