@@ -21,7 +21,7 @@ web applications [printSheetApp](https://oganm.com/shiny/printSheetApp)
 and [interactiveSheet](https://oganm.com/shiny/interactiveSheet). It is
 a superset of the dataset I previously released under
 [oganm/dndstats](https://oganm.github.io/dndstats) with a much larger
-sample (3221 characters) size and more data fields. It was inspired by
+sample (3242 characters) size and more data fields. It was inspired by
 the
 [FiveThirtyEight](https://fivethirtyeight.com/features/is-your-dd-character-rare/)
 article on race/class proportions and the data seems to correlate well
