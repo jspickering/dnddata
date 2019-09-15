@@ -14,7 +14,7 @@ dnddata
             -   [Possible issues with detection of unique characters](#possible-issues-with-detection-of-unique-characters)
             -   [Possible issues with selection bias](#possible-issues-with-selection-bias)
 
-This is a weekly updated dataset of character that are submitted to my web applications [printSheetApp](https://oganm.com/shiny/printSheetApp) and [interactiveSheet](https://oganm.com/shiny/interactiveSheet). It is a superset of the dataset I previously released under [oganm/dndstats](https://oganm.github.io/dndstats) with a much larger sample (3768 characters) size and more data fields. It was inspired by the [FiveThirtyEight](https://fivethirtyeight.com/features/is-your-dd-character-rare/) article on race/class proportions and the data seems to correlate well with those results (see my [dndstats article](https://oganm.github.io/dndstats)).
+This is a weekly updated dataset of character that are submitted to my web applications [printSheetApp](https://oganm.com/shiny/printSheetApp) and [interactiveSheet](https://oganm.com/shiny/interactiveSheet). It is a superset of the dataset I previously released under [oganm/dndstats](https://oganm.github.io/dndstats) with a much larger sample (3810 characters) size and more data fields. It was inspired by the [FiveThirtyEight](https://fivethirtyeight.com/features/is-your-dd-character-rare/) article on race/class proportions and the data seems to correlate well with those results (see my [dndstats article](https://oganm.github.io/dndstats)).
 
 Along with a simple table (an R `data.frame` in package), the data is also present in json format (an R `list` in package). In the table version some data fields encode complex information that are represented in a more readable manner in the json format. The data included is otherwise identical.
 
@@ -216,7 +216,7 @@ Some data fields are more reliable than others. Below is a summary of all potent
 
 -   **processedWeapons:** Weapon names are also free text fields so a processing method similar to the one used for spells is used for weapon names. Instead of a threshold of 10 substititutions/deletions/insertions, 2 was used since weapon names typically did not include additional information like spell names did. Special cases were written for hand crossbow and heavy crossbow as they were typically mismatched to their official name (eg. "crossbow, hand"). Here the weapons that weren't matched were spell names or homebrew weapons.
 
-81% of all weapons parsed did not require any modification. 14% of were only able to be matched through the heuristics. A manual examination of a random seleciton of these matches revealed 1/200 mistake. 5% of the weapon entries were not matched to an official weapon.
+80% of all weapons parsed did not require any modification. 14% of were only able to be matched through the heuristics. A manual examination of a random seleciton of these matches revealed 1/200 mistake. 5% of the weapon entries were not matched to an official weapon.
 
 #### Possible issues with detection of unique characters
 
