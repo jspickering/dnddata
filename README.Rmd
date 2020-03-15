@@ -123,7 +123,7 @@ coOccurenceMatrixSubset = rbind(Total = c(classSums,NA), coOccurenceMatrixSubset
 colnames(coOccurenceMatrixSubset)[ncol(coOccurenceMatrixSubset)] = "Total"
 
 # ggplot
-coOccurenceFrame = coOccurenceMatrixSubset %>% melt() 
+coOccurenceFrame = coOccurenceMatrixSubset %>% reshape2::melt()
 names(coOccurenceFrame)[1:2] = c('Race','Class')
 coOccurenceFrame %<>% mutate(fillCol = value*(Race!='Total' & Class!='Total'))
 coOccurenceFrame %>% ggplot(aes(x = Class,y = Race)) +
