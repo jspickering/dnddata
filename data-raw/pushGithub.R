@@ -33,6 +33,7 @@ add(repo, 'README_files/*')
 add(repo, 'data-raw/dnd_chars_unique.tsv')
 add(repo, 'data-raw/dnd_chars_all.json')
 add(repo, 'data-raw/dnd_chars_unique.json')
+add(repo, 'memoImportChar.rds')
 
 add(repo, 'data/*')
 
